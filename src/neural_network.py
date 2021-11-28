@@ -3,31 +3,33 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
+# from fast_ml.model_development import train_valid_test_split
 import numpy as np
 import pandas as pd
-import os
 
-# One-hot encode categorical values from dataset
+# Encode categorical values in dataset
 def encodeData(dataset):
-    encode_gender = pd.get_dummies(dataset['gender'])
-    dataset = dataset.join(encode_gender)
+    label_encoder = LabelEncoder()
+
+    dataset['parental level of education'] = label_encoder.fit_transform(dataset['parental level of education'])
+    dataset['lunch'] = label_encoder.fit_transform(dataset['lunch'])
+    dataset['test preparation course'] = label_encoder.fit_transform(dataset['test preparation course'])
+
+    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group A', 1)
+    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group B', 2)
+    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group C', 3)
+    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group D', 4)
+    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group E', 5)
+
+    gender = pd.get_dummies(dataset['gender'], drop_first=True)
+    dataset = pd.concat([dataset, gender], axis=1)
     dataset = dataset.drop('gender', axis=1)
-
-    encode_ethnicity = pd.get_dummies(dataset['race/ethnicity'])
-    dataset = dataset.join(encode_ethnicity)
-    dataset = dataset.drop('race/ethnicity', axis=1)
-
-    encode_education = pd.get_dummies(dataset['parental level of education'])
-    dataset = dataset.join(encode_education)
-    dataset = dataset.drop('parental level of education', axis=1)
-
-    encode_lunch = pd.get_dummies(dataset['lunch'])
-    dataset = dataset.join(encode_lunch)
-    dataset = dataset.drop('lunch', axis=1)
-
-    encode_test_prep = pd.get_dummies(dataset['test preparation course'])
-    dataset = dataset.join(encode_test_prep)
-    dataset = dataset.drop('test preparation course',axis=1)
 
     return dataset
 
@@ -38,29 +40,50 @@ dataset = raw_dataset.copy()
 # Encodes data from CSV
 dataset = encodeData(dataset)
 
-# Split and organize data into training and test sets
-train_dataset = dataset.sample(frac=0.7, random_state=0)
-test_dataset = dataset.drop(train_dataset.index)
+# Split training and test data
+x = dataset[['race/ethnicity', 'parental level of education', 'lunch', 'test preparation course', 'male']]
+y = dataset[['math score', 'reading score', 'writing score']]
+x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7, test_size=0.15, random_state=101)
 
-train_features = train_dataset.copy()
-test_features = test_dataset.copy()
+# Scale the input values in the dataset
+scaler = MinMaxScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
 
-train_labels = train_features.pop('math score')
-test_labels = test_features.pop('math score')
+# Build the linear regression model
+regression = LinearRegression()
+regression.fit(x_train, y_train)
+regression_prediction = regression.predict(x_test)
 
-
+# Initializes a Sequential model with one input layer, three hidden layers, and one output layer.
+# The layers use rectified linear activation as their activation function.
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(100, activation="tanh"),
-    tf.keras.layers.Dense(50, activation="tanh"),
-    tf.keras.layers.Dense(2, activation="softmax")
+    tf.keras.layers.Dense(5, activation='relu'),
+    tf.keras.layers.Dropout(0.25),
+    tf.keras.layers.Dense(10, activation='relu'),
+    tf.keras.layers.Dropout(0.25),
+    tf.keras.layers.Dense(20, activation='relu'),
+    tf.keras.layers.Dropout(0.25),
+    tf.keras.layers.Dense(10, activation='relu'),
+    tf.keras.layers.Dropout(0.25),
+    tf.keras.layers.Dense(3, activation='relu')
 ])
-model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
+model.compile(optimizer='adam', loss='mse')
 
-# print(model.evaluate(train_dataset))
+# Stops training once val_loss has stopped decreasing
+early_stop = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=250)
 
+# Trains the model
+model.fit(
+    x = x_train,
+    y = y_train.values,
+    epochs = 1000,
+    validation_data = (x_test, y_test),
+    verbose=1,
+    batch_size = 64,
+    callbacks = [early_stop]
+)
 
-# print('Original Dataset')
-# print(dataset.describe().transpose())
-# print('Training Dataset')
-# print(train_dataset.describe().transpose())
-# print(dataset)
+# Report model analysis
+print('Linear Regression Mean Absolute Error: ' + format(mean_absolute_error(y_test, regression_prediction)))
+print('Linear Regression Mean Squared Error: ' + format(mean_squared_error(y_test, regression_prediction)))

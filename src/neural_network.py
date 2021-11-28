@@ -40,10 +40,12 @@ dataset = raw_dataset.copy()
 # Encodes data from CSV
 dataset = encodeData(dataset)
 
-# Split training and test data
+# Split training, test, and validation data.
+# Splits the validation data using an extra train_test_split: https://datascience.stackexchange.com/questions/15135/train-test-validation-set-splitting-in-sklearn
 x = dataset[['race/ethnicity', 'parental level of education', 'lunch', 'test preparation course', 'male']]
 y = dataset[['math score', 'reading score', 'writing score']]
-x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7, test_size=0.15, random_state=101)
+x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7, test_size=0.15, random_state=1)
+x_train, x_valid, y_train, y_valid = train_test_split(x_train, y_train, test_size=0.15, random_state=1)
 
 # Scale the input values in the dataset
 scaler = MinMaxScaler()
@@ -87,3 +89,8 @@ model.fit(
 # Report model analysis
 print('Linear Regression Mean Absolute Error: ' + format(mean_absolute_error(y_test, regression_prediction)))
 print('Linear Regression Mean Squared Error: ' + format(mean_squared_error(y_test, regression_prediction)))
+
+# Report model accuracy on validation data
+print('Evaluate model on validation data')
+eval = model.evaluate(x_valid, y_valid, batch_size=128)
+print(eval)

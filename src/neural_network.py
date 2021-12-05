@@ -20,12 +20,7 @@ def encodeData(dataset):
     dataset['parental level of education'] = label_encoder.fit_transform(dataset['parental level of education'])
     dataset['lunch'] = label_encoder.fit_transform(dataset['lunch'])
     dataset['test preparation course'] = label_encoder.fit_transform(dataset['test preparation course'])
-
-    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group A', 1)
-    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group B', 2)
-    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group C', 3)
-    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group D', 4)
-    dataset['race/ethnicity'] = dataset['race/ethnicity'].replace('group E', 5)
+    dataset['race/ethnicity'] = label_encoder.fit_transform(dataset['race/ethnicity'])
 
     gender = pd.get_dummies(dataset['gender'], drop_first=True)
     dataset = pd.concat([dataset, gender], axis=1)
@@ -61,10 +56,6 @@ regression_prediction = regression.predict(x_test)
 # The layers use rectified linear activation as their activation function.
 model = tf.keras.Sequential([
     tf.keras.layers.Dense(5, activation='relu'),
-    tf.keras.layers.Dropout(0.25),
-    tf.keras.layers.Dense(10, activation='relu'),
-    tf.keras.layers.Dropout(0.25),
-    tf.keras.layers.Dense(20, activation='relu'),
     tf.keras.layers.Dropout(0.25),
     tf.keras.layers.Dense(10, activation='relu'),
     tf.keras.layers.Dropout(0.25),
